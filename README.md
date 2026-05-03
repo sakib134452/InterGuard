@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" width="100" height="100" alt="InterGuard Logo">
+<img src="assets/images/logo.png" width="100" height="100" alt="InterGuard Logo">
 
 # InterGuard
 
