@@ -14,7 +14,7 @@
 **InterGuard** is a free, open-source DNS-over-HTTPS client for Android.  
 It blocks ads, trackers, and malicious domains **system-wide** — across every app — without root.
 
-[⬇️ Download APK](https://github.com/sakib134452/InterGuard/releases/latest/download/InterGuard.apk) · [🌐 Website](#) · [📋 Releases](https://github.com/sakib134452/InterGuard/releases)
+[⬇️ Download APK](https://github.com/sakib134452/InterGuard/releases/latest/download/InterGuard.apk) · [🌐 Website](https://interguard.vercel.app) · [📋 Releases](https://github.com/sakib134452/InterGuard/releases)
 
 </div>
 
