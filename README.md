@@ -24,7 +24,7 @@ It blocks ads, trackers, and malicious domains **system-wide** — across every 
 
 | Splash | Home (ON) | Home (OFF) | Logs | Settings |
 |--------|-----------|------------|------|----------|
-| ![](screenshots/splash.png) | ![](screenshots/home_on.png) | ![](screenshots/home_off.png) | ![](screenshots/logs.png) | ![](screenshots/settings.png) |
+| ![](screenshots/screen01.png) | ![](screenshots/screen03.png) | ![](screenshots/screen02.png) | ![](screenshots/screen04.png) | ![](screenshots/screen05.png) |
 
 ---
 
