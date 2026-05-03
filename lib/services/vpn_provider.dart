@@ -12,6 +12,7 @@ class VpnProvider extends ChangeNotifier {
   String _dohUrl = 'https://dns.sacloudserver.top/dns-query';
   bool _startOnBoot = false;
   bool _isLoading = false;
+  bool _isInitialized = false;
   String? _errorMessage;
 
   Timer? _statsTimer;
@@ -23,6 +24,7 @@ class VpnProvider extends ChangeNotifier {
   String get dohUrl => _dohUrl;
   bool get startOnBoot => _startOnBoot;
   bool get isLoading => _isLoading;
+  bool get isInitialized => _isInitialized;
   String? get errorMessage => _errorMessage;
   bool get isConnected => _status == VpnStatus.connected;
 
@@ -39,6 +41,7 @@ class VpnProvider extends ChangeNotifier {
       status: _status,
       activeServer: _dohUrl,
     );
+    _isInitialized = true;
     notifyListeners();
 
     if (running) {

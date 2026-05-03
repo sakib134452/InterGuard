@@ -17,13 +17,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _testLoading = false;
   Map<String, dynamic>? _testResult;
 
+  bool _urlInitialized = false;
+  final List<Map<String, String>> _suggestions = [
+    {'name': 'Google DNS', 'url': 'https://dns.google/dns-query'},
+    {'name': 'Cloudflare', 'url': 'https://cloudflare-dns.com/dns-query'},
+    {'name': 'Quad9', 'url': 'https://dns.quad9.net/dns-query'},
+    {'name': 'AdGuard', 'url': 'https://dns.adguard-dns.com/dns-query'},
+  ];
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final vpn = context.read<VpnProvider>();
-      _urlCtrl.text = vpn.dohUrl;
-    });
+    // URL will be set in the build method once VpnProvider is initialized
   }
 
   @override
@@ -34,13 +39,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveUrl() async {
     final url = _urlCtrl.text.trim();
-    if (url.isEmpty) return;
-    if (!url.startsWith('https://')) {
-      _showSnack('URL must start with https://', isError: true);
+    if (url.isEmpty) {
+      _showSnack('Please enter a DoH URL', isError: true);
       return;
     }
+    
+    // Improved validation
+    if (!url.startsWith('https://')) {
+      _showSnack('Invalid format: URL must start with https://', isError: true);
+      return;
+    }
+    
+    try {
+      final uri = Uri.parse(url);
+      if (uri.host.isEmpty || !uri.host.contains('.')) {
+        _showSnack('Invalid format: Missing valid domain', isError: true);
+        return;
+      }
+      if (!uri.path.contains('dns-query') && !url.contains('dns')) {
+        _showSnack('Warning: URL might be missing dns-query path', isError: false);
+      }
+    } catch (e) {
+      _showSnack('Invalid URL format', isError: true);
+      return;
+    }
+
     await context.read<VpnProvider>().saveDoHUrl(url);
-    _showSnack('Server URL saved!');
+    _showSnack('Server URL saved and applied!');
   }
 
   Future<void> _testConnection() async {
@@ -90,6 +115,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           body: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             children: [
+              // Initialize controller text when provider is ready
+              if (!_urlInitialized && vpn.isInitialized) ...[
+                Builder(
+                  builder: (context) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() {
+                          _urlCtrl.text = vpn.dohUrl;
+                          _urlInitialized = true;
+                        });
+                      }
+                    });
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
               // ─── DoH Server ───────────────────────────────────────────────
               _SectionHeader(label: 'DNS SERVER'),
               _Card(
@@ -143,6 +184,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 12),
                       _TestResultBanner(result: _testResult!),
                     ],
+                    const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                    Text('Suggestions:',
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _suggestions.map((s) {
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _urlCtrl.text = s['url']!;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceElevated,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: AppColors.cardBorder, width: 1),
+                            ),
+                            child: Text(
+                              s['name']!,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: AppColors.cyan,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Format: https://domain/dns-query',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -225,7 +314,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   color: AppColors.cyanDim.withOpacity(0.3)),
                             ),
                             child: Text(
-                              'Version 1.0.0',
+                              'Version 1.0.1+2',
                               style: GoogleFonts.jetBrainsMono(
                                   fontSize: 12,
                                   color: AppColors.cyan,
@@ -236,13 +325,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     const Divider(height: 1),
-                    _InfoRow(
-                        label: 'Package',
-                        value: 'com.interguard.app'),
+                    _InfoRow(label: 'Protocol', value: 'DoH (RFC 8484)'),
                     const Divider(height: 1),
-                    _InfoRow(label: 'Protocol', value: 'DNS-over-HTTPS (RFC 8484)'),
+                    _InfoRow(label: 'Status', value: vpn.isConnected ? 'Active' : 'Inactive'),
                     const Divider(height: 1),
-                    _InfoRow(label: 'Default Server', value: 'sacloudserver.top'),
+                    _InfoRow(label: 'Current Server', value: _shortenUrl(vpn.dohUrl)),
                   ],
                 ),
               ),
@@ -253,6 +340,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  String _shortenUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.host;
+    } catch (_) {
+      return url;
+    }
   }
 }
 

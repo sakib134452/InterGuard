@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/vpn_provider.dart';
+import '../services/navigation_provider.dart';
 import '../models/vpn_models.dart';
 import 'package:intl/intl.dart';
 
@@ -12,6 +13,7 @@ class LogsScreen extends StatefulWidget {
   @override
   State<LogsScreen> createState() => _LogsScreenState();
 }
+
 
 class _LogsScreenState extends State<LogsScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
@@ -74,12 +76,23 @@ class _LogsScreenState extends State<LogsScreen> {
   Widget build(BuildContext context) {
     return Consumer<VpnProvider>(
       builder: (context, vpn, _) {
+        final nav = context.watch<NavigationProvider>();
+        final statusFilter = nav.logFilter;
+
         final allLogs = vpn.logs;
-        final filtered = _filter.isEmpty
-            ? allLogs
-            : allLogs
-                .where((l) => l.domain.toLowerCase().contains(_filter))
-                .toList();
+        var filtered = allLogs;
+        
+        if (statusFilter == LogFilterType.allowed) {
+          filtered = filtered.where((l) => !l.blocked).toList();
+        } else if (statusFilter == LogFilterType.blocked) {
+          filtered = filtered.where((l) => l.blocked).toList();
+        }
+
+        if (_filter.isNotEmpty) {
+          filtered = filtered
+              .where((l) => l.domain.toLowerCase().contains(_filter))
+              .toList();
+        }
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -123,6 +136,32 @@ class _LogsScreenState extends State<LogsScreen> {
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                   ),
+                ),
+              ),
+
+              // Filter chips
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    _FilterChip(
+                      label: 'All',
+                      selected: statusFilter == LogFilterType.all,
+                      onTap: () => nav.setTab(1, filter: LogFilterType.all),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Allowed',
+                      selected: statusFilter == LogFilterType.allowed,
+                      onTap: () => nav.setTab(1, filter: LogFilterType.allowed),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Blocked',
+                      selected: statusFilter == LogFilterType.blocked,
+                      onTap: () => nav.setTab(1, filter: LogFilterType.blocked),
+                    ),
+                  ],
                 ),
               ),
 
@@ -299,6 +338,44 @@ class _LogTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.cyan.withOpacity(0.15) : AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.cyan : AppColors.cardBorder,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? AppColors.cyan : AppColors.textSecondary,
+          ),
+        ),
       ),
     );
   }

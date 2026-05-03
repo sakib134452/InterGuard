@@ -7,6 +7,7 @@ import '../services/vpn_provider.dart';
 import '../models/vpn_models.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/power_button.dart';
+import '../services/navigation_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -214,6 +215,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   label: 'Total Queries',
                                   value: stats.totalQueries.toString(),
                                   accent: AppColors.cyan,
+                                  onTap: () => context.read<NavigationProvider>().setTab(1, filter: LogFilterType.all),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -223,6 +225,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   label: 'Blocked',
                                   value: stats.blockedQueries.toString(),
                                   accent: AppColors.red,
+                                  onTap: () => context.read<NavigationProvider>().setTab(1, filter: LogFilterType.blocked),
                                 ),
                               ),
                             ],
@@ -236,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 : '—',
                             accent: AppColors.green,
                             wide: true,
+                            onTap: () => context.read<NavigationProvider>().setTab(1, filter: LogFilterType.allowed),
                           ),
                         ],
                       ),

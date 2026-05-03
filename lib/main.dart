@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_theme.dart';
 import 'services/vpn_provider.dart';
+import 'services/navigation_provider.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
@@ -26,8 +27,11 @@ class InterGuardApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => VpnProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => VpnProvider()),
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
+      ],
       child: MaterialApp(
         title: 'InterGuard',
         debugShowCheckedModeBanner: false,

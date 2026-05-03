@@ -3,6 +3,8 @@ import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'logs_screen.dart';
 import 'settings_screen.dart';
+import '../services/navigation_provider.dart';
+import 'package:provider/provider.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -22,6 +24,9 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final nav = context.watch<NavigationProvider>();
+    final selectedIndex = nav.selectedIndex;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 600) {
@@ -31,8 +36,8 @@ class _MainShellState extends State<MainShell> {
               children: [
                 NavigationRail(
                   backgroundColor: AppColors.card,
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: (i) => nav.setTab(i),
                   labelType: NavigationRailLabelType.all,
                   destinations: const [
                     NavigationRailDestination(
@@ -58,7 +63,7 @@ class _MainShellState extends State<MainShell> {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 800),
                       child: IndexedStack(
-                        index: _selectedIndex,
+                        index: selectedIndex,
                         children: _screens,
                       ),
                     ),
@@ -72,7 +77,7 @@ class _MainShellState extends State<MainShell> {
         return Scaffold(
           backgroundColor: AppColors.background,
           body: IndexedStack(
-            index: _selectedIndex,
+            index: selectedIndex,
             children: _screens,
           ),
           bottomNavigationBar: Container(
@@ -82,8 +87,8 @@ class _MainShellState extends State<MainShell> {
               ),
             ),
             child: NavigationBar(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (i) => nav.setTab(i),
               height: 65,
               elevation: 0,
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

@@ -8,6 +8,7 @@ class StatCard extends StatelessWidget {
   final String value;
   final Color accent;
   final bool wide;
+  final VoidCallback? onTap;
 
   const StatCard({
     super.key,
@@ -16,49 +17,54 @@ class StatCard extends StatelessWidget {
     required this.value,
     required this.accent,
     this.wide = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withOpacity(0.05),
-            blurRadius: 20,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: wide
-          ? Row(
-              children: [
-                _iconBox(accent),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: _labelStyle),
-                    const SizedBox(height: 2),
-                    Text(value, style: _valueStyle(accent)),
-                  ],
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _iconBox(accent),
-                const SizedBox(height: 12),
-                Text(label, style: _labelStyle),
-                const SizedBox(height: 2),
-                Text(value, style: _valueStyle(accent)),
-              ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.cardBorder, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withOpacity(0.05),
+              blurRadius: 20,
+              spreadRadius: 0,
             ),
+          ],
+        ),
+        child: wide
+            ? Row(
+                children: [
+                  _iconBox(accent),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label, style: _labelStyle),
+                      const SizedBox(height: 2),
+                      Text(value, style: _valueStyle(accent)),
+                    ],
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _iconBox(accent),
+                  const SizedBox(height: 12),
+                  Text(label, style: _labelStyle),
+                  const SizedBox(height: 2),
+                  Text(value, style: _valueStyle(accent)),
+                ],
+              ),
+      ),
     );
   }
 
