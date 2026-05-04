@@ -47,7 +47,8 @@ It blocks ads, trackers, and malicious domains **system-wide** — across every 
 1. Download the latest APK from [Releases](https://github.com/sakib134452/InterGuard/releases/latest/download/InterGuard.apk)
 2. Enable **Install from unknown sources** in Android settings
 3. Install and open InterGuard
-4. Tap the power button to start protection
+4. Go to app settings and add your name at the last of the DoH URL. (Example: `https://dns.sacloudserver.top/dns-query/{your_name}`)
+5. Tap the power button to start protection
 
 ### Setup your own DoH server
 1. Go to **Settings** tab
