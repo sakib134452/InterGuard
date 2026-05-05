@@ -24,7 +24,7 @@ It blocks ads, trackers, and malicious domains **system-wide** — across every 
 
 | Splash | Home (ON) | Home (OFF) | Logs | Settings |
 |--------|-----------|------------|------|----------|
-| ![](screenshots/splash.png) | ![](screenshots/home_on.png) | ![](screenshots/home_off.png) | ![](screenshots/logs.png) | ![](screenshots/settings.png) |
+| ![]([screenshots/splash.png](https://github.com/sakib134452/InterGuard-web/blob/main/screen01.png)) | ![](screenshots/home_on.png) | ![](screenshots/home_off.png) | ![](screenshots/logs.png) | ![](screenshots/settings.png) |
 
 ---
 
@@ -47,7 +47,8 @@ It blocks ads, trackers, and malicious domains **system-wide** — across every 
 1. Download the latest APK from [Releases](https://github.com/sakib134452/InterGuard/releases/latest/download/InterGuard.apk)
 2. Enable **Install from unknown sources** in Android settings
 3. Install and open InterGuard
-4. Tap the power button to start protection
+4. change your name or keep default.
+5. Tap the power button to start protection
 
 ### Setup your own DoH server
 1. Go to **Settings** tab
