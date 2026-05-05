@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../services/vpn_provider.dart';
 import '../theme/app_theme.dart';
 import 'onboarding_screen.dart';
 import 'main_shell.dart';
+
+import '../services/update_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -38,14 +42,43 @@ class _SplashScreenState extends State<SplashScreen>
 
     _ctrl.forward();
 
-    Future.delayed(const Duration(milliseconds: 2800), _navigate);
+    // Reduced delay to allow update check to take some time without being too slow
+    Future.delayed(const Duration(milliseconds: 2000), _checkUpdateAndNavigate);
   }
 
-  Future<void> _navigate() async {
+  Future<void> _checkUpdateAndNavigate() async {
+    if (!mounted) return;
+    
+    // Check for updates first
+    final hasUpdatePopup = await UpdateService.checkForUpdates(context, () {
+      if (mounted) _proceedToApp();
+    });
+
+    // If no popup was shown (e.g., error or no update), proceed
+    if (!hasUpdatePopup) {
+      _proceedToApp();
+    }
+  }
+
+  Future<void> _proceedToApp() async {
     final prefs = await SharedPreferences.getInstance();
     final onboardingSeen = prefs.getBool('onboarding_seen') ?? false;
 
     if (!mounted) return;
+    
+    // First launch setup logic
+    final vpn = context.read<VpnProvider>();
+    final isFirstLaunchDone = await vpn.isFirstLaunchDone();
+    
+    if (!isFirstLaunchDone) {
+      await vpn.completeFirstLaunch(
+        deviceName: '', 
+        baseUrl: 'https://dns.sacloudserver.top/dns-query'
+      );
+    }
+
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 600),

@@ -1,7 +1,7 @@
 name: interguard
 description: "InterGuard - Block your ads by DNS"
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.2.3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -17,6 +17,8 @@ dependencies:
   flutter_svg: ^2.0.9
   lottie: ^3.0.0
   cupertino_icons: ^1.0.6
+  ota_update: ^7.1.0
+  package_info_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

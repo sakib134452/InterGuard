@@ -1,28 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Network access -->
+    <!-- Network -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 
-    <!-- VPN service -->
+    <!-- VPN -->
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
 
     <!-- Foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- Boot auto-start -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Background working -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Battery optimization exemption request -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Vibration for alerts -->
-    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Wake lock (minimal — only held during active VPN) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Query installed apps for per-app filtering -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- Device ID -->
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
+        android:required="false" />
 
     <application
         android:label="InterGuard"
@@ -79,7 +84,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Flutter Deferred Components -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

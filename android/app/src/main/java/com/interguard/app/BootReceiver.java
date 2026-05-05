@@ -30,6 +30,11 @@ public class BootReceiver extends BroadcastReceiver {
             return;
         }
 
+        if (!InterGuardPrefs.getVpnEnabled(context)) {
+            Log.d(TAG, "Protection was manually turned off before reboot — skipping autostart");
+            return;
+        }
+
         // Check if VPN permission is already granted (prepare returns null = granted)
         Intent prepareIntent = VpnService.prepare(context);
         if (prepareIntent != null) {

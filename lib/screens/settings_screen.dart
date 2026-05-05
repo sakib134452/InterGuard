@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/vpn_provider.dart';
+import '../models/vpn_models.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,58 +15,123 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _urlCtrl = TextEditingController();
+  final TextEditingController _fallbackUrlCtrl = TextEditingController();
+  final TextEditingController _nameCtrl = TextEditingController();
   bool _testLoading = false;
   Map<String, dynamic>? _testResult;
 
-  bool _urlInitialized = false;
+  bool _initialized = false;
+
   final List<Map<String, String>> _suggestions = [
-    {'name': 'Google DNS', 'url': 'https://dns.google/dns-query'},
+    {
+      'name': 'InterGuard Default',
+      'url': 'https://dns.sacloudserver.top/dns-query'
+    },
+    {'name': 'Google', 'url': 'https://dns.google/dns-query'},
     {'name': 'Cloudflare', 'url': 'https://cloudflare-dns.com/dns-query'},
-    {'name': 'Quad9', 'url': 'https://dns.quad9.net/dns-query'},
+    {'name': 'Quad9', 'url': 'https://dns9.quad9.net/dns-query'},
     {'name': 'AdGuard', 'url': 'https://dns.adguard-dns.com/dns-query'},
   ];
 
   @override
   void initState() {
     super.initState();
-    // URL will be set in the build method once VpnProvider is initialized
   }
 
   @override
   void dispose() {
     _urlCtrl.dispose();
+    _fallbackUrlCtrl.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _saveUrl() async {
+  Future<void> _saveSettings() async {
+    final vpn = context.read<VpnProvider>();
     final url = _urlCtrl.text.trim();
+    final fallbackUrl = _fallbackUrlCtrl.text.trim();
+    final name = _nameCtrl.text.trim();
+
+    bool isInterGuardDefault = url.startsWith('https://dns.sacloudserver.top/dns-query');
+
+    if (isInterGuardDefault) {
+      final parts = url.split('dns.sacloudserver.top/dns-query');
+      if (parts.length > 1 && parts[1].isNotEmpty) {
+        final nameParts = parts[1].split('/').where((s) => s.isNotEmpty).toList();
+        if (nameParts.length > 1) {
+          _showSnack('Error: There will be no more than one name after the URL.', isError: true);
+          return;
+        }
+      }
+    }
+
     if (url.isEmpty) {
       _showSnack('Please enter a DoH URL', isError: true);
       return;
     }
-    
-    // Improved validation
+    if (isInterGuardDefault && name.isEmpty) {
+      _showSnack('Device Name is mandatory for InterGuard Default', isError: true);
+      return;
+    }
     if (!url.startsWith('https://')) {
       _showSnack('Invalid format: URL must start with https://', isError: true);
       return;
     }
-    
+    if (fallbackUrl.isNotEmpty && !fallbackUrl.startsWith('https://')) {
+      _showSnack('Invalid format: Fallback URL must start with https://', isError: true);
+      return;
+    }
+
     try {
       final uri = Uri.parse(url);
       if (uri.host.isEmpty || !uri.host.contains('.')) {
         _showSnack('Invalid format: Missing valid domain', isError: true);
         return;
       }
-      if (!uri.path.contains('dns-query') && !url.contains('dns')) {
-        _showSnack('Warning: URL might be missing dns-query path', isError: false);
-      }
     } catch (e) {
       _showSnack('Invalid URL format', isError: true);
       return;
     }
 
-    await context.read<VpnProvider>().saveDoHUrl(url);
-    _showSnack('Server URL saved and applied!');
+    // Strip out the existing name if it's there
+    String baseUrl = url;
+    if (isInterGuardDefault) {
+       final baseMatch = RegExp(r'^(https://dns\.sacloudserver\.top/dns-query)').firstMatch(url);
+       if (baseMatch != null) {
+           baseUrl = baseMatch.group(1)!;
+       }
+    } else {
+       if (name.isNotEmpty && url.endsWith('/$name')) {
+         baseUrl = url.substring(0, url.length - name.length - 1);
+       } else {
+         final oldName = vpn.deviceName;
+         if (oldName.isNotEmpty && url.endsWith('/$oldName')) {
+           baseUrl = url.substring(0, url.length - oldName.length - 1);
+         }
+       }
+    }
+
+    // Strip trailing slash
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
+
+    String fullUrl = baseUrl;
+    if (isInterGuardDefault && name.isNotEmpty) {
+      fullUrl = '$baseUrl/$name';
+    }
+
+    await vpn.setDeviceName(name);
+    await vpn.saveDoHUrl(fullUrl);
+    if (fallbackUrl.isNotEmpty) {
+      await vpn.saveFallbackDoHUrl(fallbackUrl);
+    }
+
+    setState(() {
+      _urlCtrl.text = fullUrl;
+    });
+
+    _showSnack('Settings saved and applied!');
   }
 
   Future<void> _testConnection() async {
@@ -73,6 +139,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (url.isEmpty) {
       _showSnack('Enter a server URL first', isError: true);
       return;
+    }
+    
+    bool isInterGuardDefault = url.startsWith('https://dns.sacloudserver.top/dns-query');
+    if (isInterGuardDefault) {
+      final parts = url.split('dns.sacloudserver.top/dns-query');
+      if (parts.length > 1 && parts[1].isNotEmpty) {
+        final nameParts = parts[1].split('/').where((s) => s.isNotEmpty).toList();
+        if (nameParts.length > 1) {
+          _showSnack('Error: There will be no more than one name after the URL.', isError: true);
+          return;
+        }
+      }
     }
     setState(() {
       _testLoading = true;
@@ -105,44 +183,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
     channel.invokeMethod('openVpnSettings');
   }
 
+  void _showPerAppDialog() {
+    final vpn = context.read<VpnProvider>();
+    vpn.loadInstalledApps();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _PerAppSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<VpnProvider>(
       builder: (context, vpn, _) {
+        if (!_initialized && vpn.isInitialized) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _urlCtrl.text = vpn.dohUrl;
+                _fallbackUrlCtrl.text = vpn.fallbackDoHUrl;
+                _nameCtrl.text = vpn.deviceName;
+                _initialized = true;
+              });
+            }
+          });
+        }
+
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(title: const Text('Settings')),
           body: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             children: [
-              // Initialize controller text when provider is ready
-              if (!_urlInitialized && vpn.isInitialized) ...[
-                Builder(
-                  builder: (context) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() {
-                          _urlCtrl.text = vpn.dohUrl;
-                          _urlInitialized = true;
-                        });
-                      }
-                    });
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ],
-              // ─── DoH Server ───────────────────────────────────────────────
-              _SectionHeader(label: 'DNS SERVER'),
+              // ─── IDENTITY & SERVER ──────────────────────────────────────────
+              _SectionHeader(label: 'IDENTITY & SERVER'),
               _Card(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('DoH Server URL',
+                    // Device Name
+                    Text('Device Name',
                         style: GoogleFonts.inter(
                             fontSize: 13,
                             color: AppColors.textSecondary,
                             fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _nameCtrl,
+                      style: GoogleFonts.inter(
+                          color: AppColors.textPrimary, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. MyPhone',
+                        prefixIcon: const Icon(Icons.badge_rounded,
+                            color: AppColors.cyan, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 14),
+                      ),
+                      onChanged: (val) {
+                          // Real-time update preview
+                          final name = val.trim();
+                          String url = _urlCtrl.text;
+                          bool isInterGuardDefault = url.startsWith('https://dns.sacloudserver.top/dns-query');
+                          if (isInterGuardDefault) {
+                            final baseMatch = RegExp(r'^(https://dns\.sacloudserver\.top/dns-query)').firstMatch(url);
+                            if (baseMatch != null) {
+                              String base = baseMatch.group(1)!;
+                              if (name.isNotEmpty) {
+                                _urlCtrl.text = '$base/$name';
+                              } else {
+                                _urlCtrl.text = base;
+                              }
+                            }
+                          }
+                      },
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Your name is appended to the server URL to identify your device.',
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // DoH URL
+                    Text('Primary DoH Server URL',
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 6),
                     TextField(
                       controller: _urlCtrl,
                       style: GoogleFonts.jetBrainsMono(
@@ -157,21 +289,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             horizontal: 14, vertical: 14),
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Fallback DoH URL
+                    Text('Fallback Server URL',
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _fallbackUrlCtrl,
+                      style: GoogleFonts.jetBrainsMono(
+                          color: AppColors.textPrimary, fontSize: 13),
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      decoration: InputDecoration(
+                        hintText: 'https://cloudflare-dns.com/dns-query',
+                        prefixIcon: const Icon(Icons.security_rounded,
+                            color: AppColors.cyan, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 14),
+                      ),
+                    ),
                     const SizedBox(height: 12),
+
+                    // Actions
                     Row(
                       children: [
                         Expanded(
                           child: _OutlineBtn(
-                            label: 'Save',
+                            label: 'Save Settings',
                             icon: Icons.save_rounded,
-                            onTap: _saveUrl,
+                            onTap: _saveSettings,
                             accent: AppColors.cyan,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: _OutlineBtn(
-                            label: _testLoading ? 'Testing...' : 'Test',
+                            label: _testLoading ? 'Testing...' : 'Test URL',
                             icon: Icons.network_check_rounded,
                             onTap: _testLoading ? null : _testConnection,
                             accent: AppColors.green,
@@ -179,13 +336,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ),
-                    // Test result
                     if (_testResult != null) ...[
                       const SizedBox(height: 12),
                       _TestResultBanner(result: _testResult!),
                     ],
                     const SizedBox(height: 16),
-                    const SizedBox(height: 16),
+
+                    // Suggestions
                     Text('Suggestions:',
                         style: GoogleFonts.inter(
                             fontSize: 12,
@@ -199,7 +356,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         return InkWell(
                           onTap: () {
                             setState(() {
-                              _urlCtrl.text = s['url']!;
+                              String base = s['url']!;
+                              bool isInterGuardDefault = base.startsWith('https://dns.sacloudserver.top/dns-query');
+                              String name = _nameCtrl.text.trim();
+                              if (name.isEmpty) name = vpn.deviceName;
+                              if (isInterGuardDefault && name.isNotEmpty) {
+                                _urlCtrl.text = '$base/$name';
+                              } else {
+                                _urlCtrl.text = base;
+                              }
                             });
                           },
                           borderRadius: BorderRadius.circular(8),
@@ -207,30 +372,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceElevated,
+                              color: s['name'] == 'InterGuard Default'
+                                  ? AppColors.cyan.withOpacity(0.15)
+                                  : AppColors.surfaceElevated,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: AppColors.cardBorder, width: 1),
+                                  color: s['name'] == 'InterGuard Default'
+                                      ? AppColors.cyan.withOpacity(0.5)
+                                      : AppColors.cardBorder,
+                                  width: 1),
                             ),
                             child: Text(
                               s['name']!,
                               style: GoogleFonts.inter(
                                   fontSize: 11,
-                                  color: AppColors.cyan,
+                                  color: s['name'] == 'InterGuard Default'
+                                      ? AppColors.cyan
+                                      : AppColors.textSecondary,
                                   fontWeight: FontWeight.w500),
                             ),
                           ),
                         );
                       }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Format: https://domain/dns-query',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppColors.textMuted,
-                        fontStyle: FontStyle.italic,
-                      ),
                     ),
                   ],
                 ),
@@ -238,8 +401,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 16),
 
-              // ─── Protection ───────────────────────────────────────────────
-              _SectionHeader(label: 'PROTECTION'),
+              // ─── PROTECTION ───────────────────────────────────────────────
+              _SectionHeader(label: 'PROTECTION & OPTIMIZATION'),
               _Card(
                 child: Column(
                   children: [
@@ -252,12 +415,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const Divider(height: 1),
                     _TapRow(
-                      icon: Icons.lock_outline_rounded,
-                      label: 'Always-On VPN',
-                      subtitle: 'Configure in Android VPN settings',
-                      onTap: _openVpnSettings,
-                      trailing: const Icon(Icons.open_in_new_rounded,
-                          size: 16, color: AppColors.textMuted),
+                      icon: Icons.apps_rounded,
+                      label: 'Per-App Protection',
+                      subtitle: '${vpn.disallowedApps.length} apps bypassing VPN',
+                      onTap: _showPerAppDialog,
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          size: 20, color: AppColors.textMuted),
+                    ),
+                    const Divider(height: 1),
+                    _TapRow(
+                      icon: Icons.battery_charging_full_rounded,
+                      label: 'Battery Optimization',
+                      subtitle: vpn.batteryOptIgnored
+                          ? 'Unrestricted (Recommended)'
+                          : 'Optimized (May stop VPN)',
+                      onTap: () {
+                        if (!vpn.batteryOptIgnored) {
+                          vpn.requestBatteryOptimization();
+                        } else {
+                          _showSnack('Battery optimization is already unrestricted.');
+                        }
+                      },
+                      trailing: Icon(
+                        vpn.batteryOptIgnored
+                            ? Icons.check_circle_rounded
+                            : Icons.warning_rounded,
+                        size: 18,
+                        color: vpn.batteryOptIgnored
+                            ? AppColors.green
+                            : Colors.orange,
+                      ),
                     ),
                   ],
                 ),
@@ -265,8 +452,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 16),
 
-              // ─── About ────────────────────────────────────────────────────
-              _SectionHeader(label: 'ABOUT'),
+              // ─── ABOUT ────────────────────────────────────────────────────
+              _SectionHeader(label: 'ABOUT & SYSTEM'),
               _Card(
                 child: Column(
                   children: [
@@ -294,15 +481,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               letterSpacing: 0.5,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Block your ads by DNS',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: AppColors.cyan,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
                           const SizedBox(height: 14),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -314,7 +492,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   color: AppColors.cyanDim.withOpacity(0.3)),
                             ),
                             child: Text(
-                              'Version 1.0.1+2',
+                              'Version 1.1.2',
                               style: GoogleFonts.jetBrainsMono(
                                   fontSize: 12,
                                   color: AppColors.cyan,
@@ -325,11 +503,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     const Divider(height: 1),
-                    _InfoRow(label: 'Protocol', value: 'DoH (RFC 8484)'),
+                    _InfoRow(label: 'Virtual IP', value: vpn.virtualIp.isNotEmpty ? vpn.virtualIp : 'Loading...'),
                     const Divider(height: 1),
                     _InfoRow(label: 'Status', value: vpn.isConnected ? 'Active' : 'Inactive'),
-                    const Divider(height: 1),
-                    _InfoRow(label: 'Current Server', value: _shortenUrl(vpn.dohUrl)),
                   ],
                 ),
               ),
@@ -341,16 +517,129 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+}
 
-  String _shortenUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      return uri.host;
-    } catch (_) {
-      return url;
-    }
+// ─── Per-App Sheet ────────────────────────────────────────────────────────────
+
+class _PerAppSheet extends StatefulWidget {
+  const _PerAppSheet();
+
+  @override
+  State<_PerAppSheet> createState() => _PerAppSheetState();
+}
+
+class _PerAppSheetState extends State<_PerAppSheet> {
+  String _search = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Consumer<VpnProvider>(
+        builder: (context, vpn, _) {
+          List<AppInfo> apps = vpn.installedApps;
+          if (_search.isNotEmpty) {
+            final s = _search.toLowerCase();
+            apps = apps.where((a) => a.name.toLowerCase().contains(s)).toList();
+          }
+
+          return Column(
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Text('Per-App Protection',
+                        style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary)),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text('Done', style: GoogleFonts.inter(color: AppColors.cyan)),
+                    )
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Text(
+                  'Apps toggled OFF will bypass the VPN entirely and use the standard unencrypted network.',
+                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: TextField(
+                  style: GoogleFonts.inter(color: AppColors.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Search apps...',
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  onChanged: (v) => setState(() => _search = v),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: !vpn.appsLoaded
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.cyan))
+                    : ListView.builder(
+                        itemCount: apps.length,
+                        itemBuilder: (context, index) {
+                          final app = apps[index];
+                          final isDisallowed = vpn.disallowedApps.contains(app.packageName);
+                          
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                            title: Text(
+                              app.name,
+                              style: GoogleFonts.inter(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14),
+                            ),
+                            subtitle: Text(
+                              app.isSystem ? 'System App' : 'User App',
+                              style: GoogleFonts.inter(
+                                  color: AppColors.textMuted, fontSize: 11),
+                            ),
+                            trailing: Switch(
+                              value: !isDisallowed, // ON = Protected (default), OFF = Disallowed
+                              activeColor: AppColors.cyan,
+                              onChanged: (val) {
+                                vpn.toggleDisallowedApp(app.packageName);
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 }
+
 
 // ─── Helper Widgets ──────────────────────────────────────────────────────────
 
@@ -441,6 +730,7 @@ class _SwitchRow extends StatelessWidget {
           Switch(
             value: value,
             onChanged: (v) => onChanged(v),
+            activeColor: AppColors.cyan,
           ),
         ],
       ),

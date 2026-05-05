@@ -57,3 +57,24 @@ class VpnStats {
     );
   }
 }
+
+/// Represents an installed app for per-app VPN filtering.
+class AppInfo {
+  final String packageName;
+  final String name;
+  final bool isSystem;
+
+  const AppInfo({
+    required this.packageName,
+    required this.name,
+    required this.isSystem,
+  });
+
+  factory AppInfo.fromMap(Map<dynamic, dynamic> map) {
+    return AppInfo(
+      packageName: map['package'] as String? ?? '',
+      name: map['name'] as String? ?? '',
+      isSystem: map['isSystem'] as bool? ?? false,
+    );
+  }
+}
