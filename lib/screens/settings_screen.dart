@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,7 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     },
     {'name': 'Google', 'url': 'https://dns.google/dns-query'},
     {'name': 'Cloudflare', 'url': 'https://cloudflare-dns.com/dns-query'},
-    {'name': 'Quad9', 'url': 'https://dns9.quad9.net/dns-query'},
+    {'name': 'Quad9', 'url': 'https://dns.quad9.net/dns-query'},
     {'name': 'AdGuard', 'url': 'https://dns.adguard-dns.com/dns-query'},
   ];
 
@@ -176,11 +177,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         margin: const EdgeInsets.all(16),
       ),
     );
-  }
-
-  void _openVpnSettings() {
-    const MethodChannel channel = MethodChannel('com.interguard.app/vpn');
-    channel.invokeMethod('openVpnSettings');
   }
 
   void _showPerAppDialog() {
@@ -413,39 +409,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       value: vpn.startOnBoot,
                       onChanged: vpn.setStartOnBoot,
                     ),
-                    const Divider(height: 1),
-                    _TapRow(
-                      icon: Icons.apps_rounded,
-                      label: 'Per-App Protection',
-                      subtitle: '${vpn.disallowedApps.length} apps bypassing VPN',
-                      onTap: _showPerAppDialog,
-                      trailing: const Icon(Icons.chevron_right_rounded,
-                          size: 20, color: AppColors.textMuted),
-                    ),
-                    const Divider(height: 1),
-                    _TapRow(
-                      icon: Icons.battery_charging_full_rounded,
-                      label: 'Battery Optimization',
-                      subtitle: vpn.batteryOptIgnored
-                          ? 'Unrestricted (Recommended)'
-                          : 'Optimized (May stop VPN)',
-                      onTap: () {
-                        if (!vpn.batteryOptIgnored) {
-                          vpn.requestBatteryOptimization();
-                        } else {
-                          _showSnack('Battery optimization is already unrestricted.');
-                        }
-                      },
-                      trailing: Icon(
-                        vpn.batteryOptIgnored
-                            ? Icons.check_circle_rounded
-                            : Icons.warning_rounded,
-                        size: 18,
-                        color: vpn.batteryOptIgnored
-                            ? AppColors.green
-                            : Colors.orange,
+                    if (!Platform.isWindows) ...[
+                      const Divider(height: 1),
+                      _TapRow(
+                        icon: Icons.apps_rounded,
+                        label: 'Per-App Protection',
+                        subtitle: '${vpn.disallowedApps.length} apps bypassing VPN',
+                        onTap: _showPerAppDialog,
+                        trailing: const Icon(Icons.chevron_right_rounded,
+                            size: 20, color: AppColors.textMuted),
                       ),
-                    ),
+                      const Divider(height: 1),
+                      _TapRow(
+                        icon: Icons.battery_charging_full_rounded,
+                        label: 'Battery Optimization',
+                        subtitle: vpn.batteryOptIgnored
+                            ? 'Unrestricted (Recommended)'
+                            : 'Optimized (May stop VPN)',
+                        onTap: () {
+                          if (!vpn.batteryOptIgnored) {
+                            vpn.requestBatteryOptimization();
+                          } else {
+                            _showSnack('Battery optimization is already unrestricted.');
+                          }
+                        },
+                        trailing: Icon(
+                          vpn.batteryOptIgnored
+                              ? Icons.check_circle_rounded
+                              : Icons.warning_rounded,
+                          size: 18,
+                          color: vpn.batteryOptIgnored
+                              ? AppColors.green
+                              : Colors.orange,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -492,7 +490,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   color: AppColors.cyanDim.withOpacity(0.3)),
                             ),
                             child: Text(
-                              'Version 1.1.2',
+                              'Version 1.2.6',
                               style: GoogleFonts.jetBrainsMono(
                                   fontSize: 12,
                                   color: AppColors.cyan,
@@ -503,7 +501,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     const Divider(height: 1),
-                    _InfoRow(label: 'Virtual IP', value: vpn.virtualIp.isNotEmpty ? vpn.virtualIp : 'Loading...'),
+                    _InfoRow(label: 'Public IP (Original)', value: vpn.publicIp),
+                    const Divider(height: 1),
+                    _InfoRow(label: 'Virtual Client IP', value: vpn.virtualIp.isNotEmpty ? vpn.virtualIp : '---'),
+                    const Divider(height: 1),
+                    _InfoRow(label: 'VPN Tunnel IP', value: vpn.isConnected ? '10.111.222.1' : '---'),
                     const Divider(height: 1),
                     _InfoRow(label: 'Status', value: vpn.isConnected ? 'Active' : 'Inactive'),
                   ],

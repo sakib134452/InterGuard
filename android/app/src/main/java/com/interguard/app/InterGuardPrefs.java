@@ -29,7 +29,7 @@ public class InterGuardPrefs {
     public static final String DEFAULT_BASE_DOH_URL =
             "https://dns.sacloudserver.top/dns-query";
     public static final String DEFAULT_FALLBACK_DOH_URL =
-            "https://cloudflare-dns.com/dns-query";
+            "https://dns.adguard-dns.com/dns-query";
 
     private InterGuardPrefs() {}
 

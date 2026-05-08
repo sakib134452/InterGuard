@@ -2,21 +2,26 @@ package com.interguard.app;
 
 import android.util.Log;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 /**
  * Forwards DNS queries as DNS-over-HTTPS (RFC 8484) POST requests.
- * Includes retry logic with exponential backoff to handle transient
- * connectivity issues (e.g., WiFi/mobile switching, temporary failures).
+ * Uses OkHttp to support HTTP/2, which is required by Quad9 as of Dec 2025.
  */
 public class DoHForwarder {
 
     private static final String TAG = "DoHForwarder";
     private static final String CONTENT_TYPE = "application/dns-message";
+    private static final MediaType MEDIA_TYPE_DNS = MediaType.parse(CONTENT_TYPE);
+    
     private static final int CONNECT_TIMEOUT_MS = 5000;
     private static final int READ_TIMEOUT_MS    = 8000;
     private static final int MAX_RETRIES        = 2;
@@ -25,11 +30,19 @@ public class DoHForwarder {
     private final AtomicReference<String> dohUrl;
     private final AtomicReference<String> fallbackUrl;
     private final String clientIp;
+    private final OkHttpClient client;
 
     public DoHForwarder(String url, String fallbackUrl, String clientIp) {
         this.dohUrl = new AtomicReference<>(url);
         this.fallbackUrl = new AtomicReference<>(fallbackUrl != null ? fallbackUrl : "");
         this.clientIp = clientIp;
+        
+        // OkHttp handles HTTP/2 automatically and performs much better than HttpURLConnection
+        this.client = new OkHttpClient.Builder()
+                .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .readTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .retryOnConnectionFailure(true)
+                .build();
     }
 
     public void updateUrl(String url) {
@@ -56,7 +69,6 @@ public class DoHForwarder {
 
     /**
      * Performs the DoH POST request with up to MAX_RETRIES retries.
-     * Must be called from a background thread.
      */
     public Result forward(byte[] dnsQuery) {
         long globalStart = System.currentTimeMillis();
@@ -92,41 +104,33 @@ public class DoHForwarder {
 
     private Result forwardOnce(byte[] dnsQuery, String url) {
         long start = System.currentTimeMillis();
-        HttpURLConnection conn = null;
-
+        
         try {
-            conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
-            conn.setReadTimeout(READ_TIMEOUT_MS);
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", CONTENT_TYPE);
-            conn.setRequestProperty("Accept", CONTENT_TYPE);
-            conn.setRequestProperty("X-Forwarded-For", clientIp);
-            conn.setRequestProperty("Content-Length", String.valueOf(dnsQuery.length));
-            conn.setDoOutput(true);
-            conn.setDoInput(true);
-            conn.setUseCaches(false);
+            RequestBody body = RequestBody.create(dnsQuery, MEDIA_TYPE_DNS);
+            Request request = new Request.Builder()
+                    .url(url)
+                    .post(body)
+                    .header("Content-Type", CONTENT_TYPE)
+                    .header("Accept", CONTENT_TYPE)
+                    .header("X-Forwarded-For", clientIp)
+                    .build();
 
-            conn.getOutputStream().write(dnsQuery);
-            conn.getOutputStream().flush();
+            try (Response response = client.newCall(request).execute()) {
+                long latency = System.currentTimeMillis() - start;
+                int status = response.code();
 
-            int status = conn.getResponseCode();
-            long latency = System.currentTimeMillis() - start;
-
-            if (status == 200) {
-                byte[] response = readStream(conn.getInputStream());
-                return new Result(response, status, latency);
-            } else {
-                Log.w(TAG, "DoH HTTP " + status + " for: " + url);
-                return new Result(null, status, latency);
+                if (response.isSuccessful() && response.body() != null) {
+                    byte[] responseData = response.body().bytes();
+                    return new Result(responseData, status, latency);
+                } else {
+                    Log.w(TAG, "DoH HTTP " + status + " for: " + url);
+                    return new Result(null, status, latency);
+                }
             }
-
         } catch (Exception e) {
             long latency = System.currentTimeMillis() - start;
             Log.w(TAG, "DoH request failed: " + e.getMessage());
             return new Result(null, -1, latency);
-        } finally {
-            if (conn != null) conn.disconnect();
         }
     }
 
@@ -166,13 +170,5 @@ public class DoHForwarder {
             0x03, 'c','o','m', 0x00,
             0x00, 0x01, 0x00, 0x01
         };
-    }
-
-    private static byte[] readStream(InputStream is) throws java.io.IOException {
-        ByteArrayOutputStream buf = new ByteArrayOutputStream();
-        byte[] tmp = new byte[4096];
-        int n;
-        while ((n = is.read(tmp)) != -1) buf.write(tmp, 0, n);
-        return buf.toByteArray();
     }
 }

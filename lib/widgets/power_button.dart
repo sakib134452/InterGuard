@@ -7,12 +7,14 @@ class PowerButton extends StatefulWidget {
   final VpnStatus status;
   final VoidCallback? onTap;
   final AnimationController pulseCtrl;
+  final double size;
 
   const PowerButton({
     super.key,
     required this.status,
     required this.onTap,
     required this.pulseCtrl,
+    this.size = 200.0,
   });
 
   @override
@@ -88,8 +90,8 @@ class _PowerButtonState extends State<PowerButton>
               children: [
                 // Outer glow
                 Container(
-                  width: 200,
-                  height: 200,
+                  width: widget.size,
+                  height: widget.size,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     boxShadow: [
@@ -103,8 +105,8 @@ class _PowerButtonState extends State<PowerButton>
                 ),
                 // Animated ring
                 Container(
-                  width: 180,
-                  height: 180,
+                  width: widget.size * 0.9,
+                  height: widget.size * 0.9,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -116,8 +118,8 @@ class _PowerButtonState extends State<PowerButton>
                 // Button body
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 400),
-                  width: 148,
-                  height: 148,
+                  width: widget.size * 0.74,
+                  height: widget.size * 0.74,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: _buttonBg,
@@ -146,19 +148,20 @@ class _PowerButtonState extends State<PowerButton>
   }
 
   Widget _buildPowerIcon(bool isOn) {
+    final iconSize = widget.size * 0.26;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
           Icons.power_settings_new_rounded,
-          size: 52,
+          size: iconSize,
           color: isOn ? AppColors.green : AppColors.textMuted,
         ),
         const SizedBox(height: 4),
         Text(
           isOn ? 'ON' : 'OFF',
           style: GoogleFonts.inter(
-            fontSize: 13,
+            fontSize: widget.size * 0.065,
             fontWeight: FontWeight.w700,
             color: isOn ? AppColors.green : AppColors.textMuted,
             letterSpacing: 2,
@@ -169,11 +172,12 @@ class _PowerButtonState extends State<PowerButton>
   }
 
   Widget _buildSpinner() {
-    return const Center(
+    final spinnerSize = widget.size * 0.26;
+    return Center(
       child: SizedBox(
-        width: 52,
-        height: 52,
-        child: CircularProgressIndicator(
+        width: spinnerSize,
+        height: spinnerSize,
+        child: const CircularProgressIndicator(
           strokeWidth: 2.5,
           valueColor: AlwaysStoppedAnimation<Color>(AppColors.cyan),
         ),

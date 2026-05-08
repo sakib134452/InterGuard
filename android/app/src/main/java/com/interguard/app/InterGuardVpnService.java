@@ -71,6 +71,10 @@ public class InterGuardVpnService extends VpnService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        // CRITICAL: Always show notification immediately when started via startForegroundService
+        // to avoid "ForegroundServiceDidNotStartInTimeException" on Android 8.0+.
+        showNotification();
+
         // If restarted by system after process death (intent==null or no explicit action)
         // AND the user has disabled VPN, don't restart — just stop.
         if (!InterGuardPrefs.getVpnEnabled(this)) {
@@ -90,7 +94,6 @@ public class InterGuardVpnService extends VpnService {
         Log.i(TAG, "Starting VPN with DoH URL: " + dohUrl + " Fallback: " + fallbackDohUrl + " Virtual IP: " + virtualIp);
 
         dohForwarder = new DoHForwarder(dohUrl, fallbackDohUrl, virtualIp);
-        showNotification();
 
         executor = Executors.newCachedThreadPool();
         executor.execute(this::startVpnTunnel);
@@ -246,8 +249,8 @@ public class InterGuardVpnService extends VpnService {
 
         String deviceName = InterGuardPrefs.getDeviceName(this);
         nb.setSmallIcon(android.R.drawable.ic_lock_lock)
-                .setContentTitle("InterGuard Active")
-                .setContentText("DNS protection enabled · " + deviceName)
+                .setContentTitle("InterGuard Protection")
+                .setContentText("InterGuard is Protected your dns - " + deviceName)
                 .setContentIntent(pi)
                 .setOngoing(true);
 

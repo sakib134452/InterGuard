@@ -14,7 +14,6 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _selectedIndex = 0;
 
   static const List<Widget> _screens = [
     HomeScreen(),
@@ -60,12 +59,9 @@ class _MainShellState extends State<MainShell> {
                 const VerticalDivider(thickness: 1, width: 1, color: AppColors.navBarBorder),
                 Expanded(
                   child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 800),
-                      child: IndexedStack(
-                        index: selectedIndex,
-                        children: _screens,
-                      ),
+                    child: IndexedStack(
+                      index: selectedIndex,
+                      children: _screens,
                     ),
                   ),
                 ),

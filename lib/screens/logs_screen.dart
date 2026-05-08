@@ -247,7 +247,6 @@ class _LogTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeStr =
         DateFormat('HH:mm:ss').format(log.timestamp);
-    final dateStr = DateFormat('MMM d').format(log.timestamp);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
